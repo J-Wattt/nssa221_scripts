@@ -1,48 +1,53 @@
 #Jacob Watson March 27, 2026
 #!/env/bin/python3
-from geoip import geolite2 # type: ignore
+from geoip import geolite2
 import subprocess
 import os
 import pathlib
 import re
 
-pattern = r"[\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}]"
 
-    
+pattern = r"\b\d{1,3}(?:\.\d{1,3}){3}\b"
+
+DATABASE_PATH = "/home/student/GeoLite2-City/GeoLite2-City.mmdb"
 
 def main():
-    ip_addresses = dict("Count","IP address", "Country")
-    syslog = "/home/student/syslog.log"
-    try:
-        with open(syslog,"r") as f:
-            for line in f:
-                match = pattern.search(line)
-                if match in ip_addresses:
-                    for address in ip_addresses:
-                        if(ip_addresses['IP address'] == match):
-                            address["Count"] +=1
-                            
-                else:
-                    try:
-                        with geoip2.database.Reader(DATABASE_PATH) as reader:
-                            response = reader.city(match) 
-                            country = response.country.name
-                            ip_address = dict("Count" | 0, "IP address" | match, "Country"|country)
-                            ip_addresses = ip_address | ip_addresses
+	os.system("clear")
+	ip_addresses = {}
+	syslog = "/home/student/syslog.log"
+	try:
+		with open(syslog,"r") as f:
+			for line in f:
+				match = re.search(pattern, line)
+				if match:
+					ip = match.group().strip()
+					if ip in ip_addresses:
+						ip_addresses[ip]["Count"] += 1
+		                    
+					else:
+						try:
+							response = geolite2.lookup(ip) 
+							if response:
+								country = response.country
+							else:
+								continue
+							ip_addresses[ip] = {"Count" : 1, "Country": country}
 
 
-                    except geoip2.errors.AddressNotFound:
-                        print("Error: Location for IP")
-                    except Exception as e:
-                        print("Something went wrong", e)
-
-    except FileNotFoundError:
-        print(f"File not found")
+						except Exception as e:
+							print("Something went wrong", e)
+				else:
+					continue
+	except FileNotFoundError:
+		print(f"File not found")
     
-    sorted_report = dict(sorted(ip_address.items()))
+	sorted_report = sorted(ip_addresses.items(),key=lambda x:[1]["Count"], reverse = True)
+	
+	print(f"{'Count':<6} {'IP Address':<15} {'Country'}")
+	print("-" * 40)
 
-    print(subprocess.run(["date"],capture_output=True, stdout=True))
-    for entries in sorted_report:
-        print(entries)
+	print(subprocess.run(["date"],capture_output=True, text=True))
+	for ip, data in sorted_report:
+		print(f"{data['Count']} {ip:<15} {data['Country']}")
 
 main()
